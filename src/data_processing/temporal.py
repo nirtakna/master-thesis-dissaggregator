@@ -435,9 +435,9 @@ def disaggregate_temporal_power_CTS(
     total_sum = sv_yearly.drop("BL", axis=1).sum().sum()
 
     # Create empty 15min-index'ed DataFrame for target year
-    tz = get_timezone("DE")  # or alpha2code mapping
-    idx = make_year_index(year, "15min", tz)
-    #idx = pd.date_range(start=str(year), end=str(year + 1), freq="15T")[:-1]
+    # tz = get_timezone("DE")  # or alpha2code mapping
+    # idx = make_year_index(year, "15min", tz)
+    idx = pd.date_range(start=str(year), end=str(year + 1), freq="15T")[:-1]
     DF = pd.DataFrame(index=idx)
 
     for state in federal_state_dict().values():
