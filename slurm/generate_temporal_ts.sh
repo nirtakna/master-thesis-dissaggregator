@@ -4,7 +4,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --time=100:00:00
 #SBATCH --gres=gpu:0
-#SBATCH --mem=8G
+#SBATCH --mem=128G
 #SBATCH -o /mnt/home/rmiranda/all/repos/master-thesis-dissaggregator/slurm/logs/%j-%x.log
 #SBATCH --job-name=disag
 #SBATCH --nodelist=gpu3.omnia.cluster
