@@ -943,7 +943,8 @@ def get_CTS_power_slp(state, year: int):
         ]
         
         # using only the lines with hours and values
-        df_SLP = df_load[2:97]
+        df_SLP = df_load[2:98].reset_index(drop=True)
+
         # as the times in the slp table have to be interpreted as 15 min steps, giving the end of the 15 min, but we always use the start of the 15 min step in our time series, we have to shift the time values by one line, so that the value for 00:15 gets the time 00:00, the value for 00:30 gets the time 00:15 and so on. The value for 00:00 gets the time 23:45.
         df_SLP.loc[0:len(df_SLP)-1,'Hour'] = list(df_SLP.loc[[len(df_SLP)-1] + list(range(0, len(df_SLP)-1)), 'Hour'])
         
@@ -1005,8 +1006,14 @@ def get_CTS_power_slp(state, year: int):
 
 
     df = df.drop(columns=last_strings).set_index("Date")
+
+    df = df.tz_convert('UTC')
+
+    idx = pd.date_range(start=str(year), end=str(year + 1), freq="15min")[:-1]
     
-    return df.tz_convert('UTC') 
+    df.index = idx # UTC index without timezone info
+
+    return df 
 
 
 def get_shift_load_profiles_by_year(
