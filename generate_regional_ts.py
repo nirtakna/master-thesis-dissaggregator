@@ -9,7 +9,8 @@ from src.pipeline.pipe_temporal import disaggregate_temporal
 
 year = 2022
 
-result_path = "/mnt/data/oe215/el_load/results/demandregio/testak"
+result_path = "/mnt/data/oe215/rhindrikson/el_load"
+
 
 def main():
     start = time()
@@ -73,15 +74,16 @@ def main():
     formats = ["pkl", "csv"]
     for format in formats:
         cts_path = (
-            result_path + "/cts"
-            + f"/temporal_disaggregation_power_cts_{year}.{format}"
+            result_path + "/cts" + f"/temporal_disaggregation_power_cts_{year}.{format}"
         )
         industry_path = (
-            result_path + "/industry"
+            result_path
+            + "/industry"
             + f"/temporal_disaggregation_power_industry_{year}.{format}"
         )
         household_path = (
-            result_path + "/households"
+            result_path
+            + "/households"
             + f"/temporal_disaggregation_households_power_slp_{year}.{format}"
         )
 
