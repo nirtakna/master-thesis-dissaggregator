@@ -435,7 +435,9 @@ def disaggregate_temporal_power_CTS(
     total_sum = sv_yearly.drop("BL", axis=1).sum().sum()
 
     # Create empty 15min-index'ed DataFrame for target year
-    idx = pd.date_range(start=str(year), end=str(year + 1), freq="15T")[:-1]
+    tz = get_timezone("DE")  # or alpha2code mapping
+    idx = make_year_index(year, "15min", tz)
+    #idx = pd.date_range(start=str(year), end=str(year + 1), freq="15T")[:-1]
     DF = pd.DataFrame(index=idx)
 
     for state in federal_state_dict().values():
@@ -798,6 +800,41 @@ def get_shift_load_profiles_by_state_and_year(
     ].set_index("Date")
     return df
 
+def get_timezone(alpha2code):
+
+    """
+      getting timezone of country in Europe
+    """
+
+    timezonemap = {
+
+        'AT': 'Europe/Berlin', 'BE': 'Europe/Berlin', 'BG': 'Europe/Sofia', 'BA' : 'Europe/Sarajevo', 'CH': 'Europe/Zurich', 'CY': 'Europe/Sofia', 
+        
+        'CZ': 'Europe/Sofia', 'DE': 'Europe/Berlin',
+
+        'DK': 'Europe/Berlin', 'EE': 'Europe/Sofia', 'GB': 'Europe/London', 'GR': 'Europe/Sofia', 'ES': 'Europe/Berlin', 'FI': 'Europe/Sofia', 
+        
+        'FR': 'Europe/Berlin', 'HR': 'Europe/Berlin', 'HU': 'Europe/Berlin', 'IE': 'Europe/London', 'IS': 'Atlantic/Reykjavik', 'IT': 'Europe/Berlin', 'LT': 'Europe/Sofia', 
+        
+        'LU': 'Europe/Berlin', 'LV': 'Europe/Sofia', 'ME': 'Europe/Podgorica', 'MK': 'Europe/Skopje', 'MT': 'Europe/Sofia', 'NL': 'Europe/Berlin', 'NO': 'Europe/Oslo', 'PL': 'Europe/Berlin', 'PT': 'Europe/London', 
+        
+        'RO': 'Europe/Berlin', 'RS': 'Europe/Belgrade', 'SE': 'Europe/Berlin', 'SI': 'Europe/Berlin', 'SK': 'Europe/Berlin', 'UK': 'Europe/London'
+
+    }
+
+
+    return timezonemap.get(alpha2code)
+
+
+def make_year_index(year: int, freq: str, tz):
+    year_start = pd.Timestamp(str(year), tz="UTC")
+    year_end = pd.Timestamp(str(year + 1), tz="UTC")
+
+    return (
+        pd.date_range(start=year_start, end=year_end, freq=freq)[:-1]
+        .tz_convert(tz)
+    )
+
 
 def get_CTS_power_slp(state, year: int):
     """
@@ -827,8 +864,18 @@ def get_CTS_power_slp(state, year: int):
         v_filled = v.infer_objects(copy=False).fillna(0.0)
         v_filled = v_filled.infer_objects(copy=False)
         return v_filled[Tag_Zeit]
+    
 
-    idx = pd.date_range(start=str(year), end=str(year + 1), freq="15min")[:-1]
+    tz = get_timezone("DE")
+
+    year_start = pd.Timestamp(str(year), tz="UTC")
+    year_end = pd.Timestamp(str(year + 1), tz="UTC")
+
+    idx = make_year_index(year, "15min", tz)
+
+
+    #idx = pd.date_range(start=str(year), end=str(year + 1), freq="15min")[:-1]
+
     df = (
         pd.DataFrame(data={"Date": idx})
         .assign(Day=lambda x: pd.DatetimeIndex(x["Date"]).date)
@@ -894,8 +941,12 @@ def get_CTS_power_slp(state, year: int):
             "SU_UEZ",
             "WD_UEZ",
         ]
-        df_load.loc[1] = df_load.loc[len(df_load) - 2]
-        df_SLP = df_load[1:97]
+        
+        # using only the lines with hours and values
+        df_SLP = df_load[2:97]
+        # as the times in the slp table have to be interpreted as 15 min steps, giving the end of the 15 min, but we always use the start of the 15 min step in our time series, we have to shift the time values by one line, so that the value for 00:15 gets the time 00:00, the value for 00:30 gets the time 00:15 and so on. The value for 00:00 gets the time 23:45.
+        df_SLP.loc[0:len(df_SLP)-1,'Hour'] = list(df_SLP.loc[[len(df_SLP)-1] + list(range(0, len(df_SLP)-1)), 'Hour'])
+        
         df_SLP = df_SLP.reset_index()[
             [
                 "Hour",
@@ -933,11 +984,29 @@ def get_CTS_power_slp(state, year: int):
         Last = "Last_" + str(profile)
         last_strings.append(Last)
         df[Last] = Summe
+
+        # for the household profile, we apply the dynamisation function Ft, 
+        # which is a function of the day of the year, 
+        # to account for the seasonal variation in household loads. 
+        # The function Ft is given by the formula:
+        # Ft = -3.92e-10 * dofy^4 + 3.2e-7 * dofy^3 - 7.02e-5 * dofy^2 + 2.1e-3 * dofy + 1.24, 
+        # where dofy is the day of the year.
+        if profile == 'H0':
+            dofy = df['DayOfYear']
+            dofy = dofy.astype(float)
+            Ft = -3.92e-10 * dofy**4 + 3.2e-7 * dofy**3 - 7.02e-5 * dofy**2 + 2.1e-3 * dofy + 1.24
+            df[Last] = Summe*Ft
+
+
+
         total = sum(df[Last])
         df_normiert = df[Last] / total
         df[profile] = df_normiert
 
-    return df.drop(columns=last_strings).set_index("Date")
+
+    df = df.drop(columns=last_strings).set_index("Date")
+    
+    return df.tz_convert('UTC') 
 
 
 def get_shift_load_profiles_by_year(
