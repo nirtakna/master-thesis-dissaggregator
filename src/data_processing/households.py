@@ -18,7 +18,7 @@ def adjust_by_income(df, year):
 
 def households_power_consumption(
     year: int,
-    use_cache: bool = True,
+    use_cache: bool = False,
     scenario_id: int = 2,
     weight_by_income: bool = False,
 ) -> "pd.DataFrame":

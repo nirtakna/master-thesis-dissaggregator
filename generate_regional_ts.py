@@ -7,12 +7,10 @@ pd.options.display.max_columns = 50
 from src.pipeline.pipe_household_temporal import temporal_disaggregation_households_slp
 from src.pipeline.pipe_temporal import disaggregate_temporal
 
-year = 2022
-
 result_path = "/mnt/data/oe215/rhindrikson/el_load"
 
 
-def main():
+def main(year):
     start = time()
     print("Creating regional time series for year:", year)
 
@@ -119,4 +117,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    years = [2025]
+    for year in years:
+        main(year)
