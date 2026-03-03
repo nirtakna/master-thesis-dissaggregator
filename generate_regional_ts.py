@@ -7,7 +7,7 @@ pd.options.display.max_columns = 50
 from src.pipeline.pipe_household_temporal import temporal_disaggregation_households_slp
 from src.pipeline.pipe_temporal import disaggregate_temporal
 
-result_path = "/mnt/data/oe215/rhindrikson/el_load"
+result_path = "/mnt/data/oe215/el_load/results/demandregio/testak"
 
 
 def main(year):
@@ -117,6 +117,6 @@ def main(year):
 
 
 if __name__ == "__main__":
-    years = [2025]
+    years = [2024]
     for year in years:
         main(year)

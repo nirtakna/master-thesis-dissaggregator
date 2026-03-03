@@ -1,6 +1,6 @@
 from src.data_processing.households import households_power_consumption  # noqa
 from src.data_processing.households import adjust_by_income  # noqa
-from src.data_processing.temporal import get_CTS_power_slp  # noqa
+from src.data_processing.temporal import get_CTS_power_slp, get_timezone, make_year_index  # noqa
 from src.configs.mappings import federal_state_dict
 from src import logger
 import pandas as pd
@@ -45,7 +45,11 @@ def temporal_disaggregation_households_slp(
     total_sum = sv_yearly.value.sum()
 
     # Create empty 15min-index'ed DataFrame for target year
-    idx = pd.date_range(start=str(year), end=str(year + 1), freq="15min")[:-1]
+
+    
+    idx = make_year_index(year, "15min", 'UTC')
+    
+    # idx = pd.date_range(start=str(year), end=str(year + 1), freq="15min")[:-1]
     DF = pd.DataFrame(index=idx)
 
     for state in federal_state_dict().values():

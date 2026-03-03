@@ -60,8 +60,17 @@ def disaggregate_temporal_industry(
     slp = get_shift_load_profiles_by_year(
         year=year, low=low, force_preprocessing=force_preprocessing
     )
-    slp.index = pd.to_datetime(slp.index)
+    
 
+    # slp.index = pd.to_datetime(slp.index)
+
+
+    # Verify that each column sums to 1
+    for col in slp.columns:
+        col_sum = slp[col].sum()
+        if not np.isclose(col_sum, 1.0, atol=1e-6):
+            logger.warning(f"Column {col} sum is {col_sum}, expected 1.0")
+    
     # 3. Perform Disaggregation (Integrated Logic)
     state_mapping = federal_state_dict()
     profile_mapping = shift_profile_industry()
@@ -117,6 +126,11 @@ def disaggregate_temporal_industry(
             state_abbr = state_mapping[state_num]
             industry_sector_int = int(industry_sector_str)
             load_profile_name = profile_mapping[industry_sector_int]
+
+            # logger.info(
+            # f"Processing regional_id: {regional_id}, industry_sector: {industry_sector_str} "
+            # f"(state: {state_abbr}, load_profile: {load_profile_name}, ")
+
             profile_series = slp[(state_abbr, load_profile_name)]
 
             # Multiply profile by consumption (if 0.0, result is Series of zeros)
@@ -167,6 +181,11 @@ def disaggregate_temporal_industry(
 
     final_df = pd.DataFrame(disaggregated_results)
     final_df.columns.names = ["regional_id", "industry_sector"]
+
+    logger.info(
+        f"final_df created with shape {final_df.shape} and columns: {final_df.columns[:5]}..."
+    )
+    print(final_df.head())
 
     # 6. calculate the total consumption for plausalilty check
     total_consumption_end = final_df.sum().sum()
@@ -435,9 +454,10 @@ def disaggregate_temporal_power_CTS(
     total_sum = sv_yearly.drop("BL", axis=1).sum().sum()
 
     # Create empty 15min-index'ed DataFrame for target year
-    # tz = get_timezone("DE")  # or alpha2code mapping
-    # idx = make_year_index(year, "15min", tz)
-    idx = pd.date_range(start=str(year), end=str(year + 1), freq="15T")[:-1]
+
+    idx = make_year_index(year, "15min", "UTC")
+
+    #idx = pd.date_range(start=str(year), end=str(year + 1), freq="15T")[:-1]
     DF = pd.DataFrame(index=idx)
 
     for state in federal_state_dict().values():
@@ -589,9 +609,14 @@ def get_shift_load_profiles_by_state_and_year(
         raise ValueError(f"Invalid state: {state}")
 
     # 1. Create datetime index for the full year in 15-minute steps
-    idx = pd.date_range(start=f"{year}-01-01", end=f"{year + 1}-01-01", freq="15min")[
-        :-1
-    ]  # Build DataFrame and extract features using .dt accessors (faster + cleaner)
+    # Create empty 15min-index'ed DataFrame for target year
+    tz = get_timezone("DE")  # or alpha2code mapping
+
+    idx = make_year_index(year, "15min", tz)
+    
+    # idx = pd.date_range(start=f"{year}-01-01", end=f"{year + 1}-01-01", freq="15min")[
+    #     :-1
+    # ]  # Build DataFrame and extract features using .dt accessors (faster + cleaner)
     df = pd.DataFrame({"Date": idx})
     df["Day"] = df["Date"].dt.date
     df["Hour"] = df["Date"].dt.time
@@ -798,6 +823,9 @@ def get_shift_load_profiles_by_state_and_year(
             "S3_WT_SA_SO",
         ]
     ].set_index("Date")
+
+    df = df.tz_convert('UTC')
+
     return df
 
 def get_timezone(alpha2code):
@@ -867,9 +895,6 @@ def get_CTS_power_slp(state, year: int):
     
 
     tz = get_timezone("DE")
-
-    year_start = pd.Timestamp(str(year), tz="UTC")
-    year_end = pd.Timestamp(str(year + 1), tz="UTC")
 
     idx = make_year_index(year, "15min", tz)
 
@@ -1009,9 +1034,9 @@ def get_CTS_power_slp(state, year: int):
 
     df = df.tz_convert('UTC')
 
-    idx = pd.date_range(start=str(year), end=str(year + 1), freq="15min")[:-1]
+    # idx = pd.date_range(start=str(year), end=str(year + 1), freq="15min")[:-1]
     
-    df.index = idx # UTC index without timezone info
+    # df.index = idx # UTC index without timezone info
 
     return df 
 
@@ -1226,8 +1251,10 @@ def gas_slp_weekday_params(state: int, year: int):
                 ['MO', 'DI', 'MI', 'DO', 'FR', 'SA', 'SO']: containing true if the day of the year is that day
                 ['FW_<slp_name>']: SLP values see  dict gas_load_profile_parameters_dict()
     """
+    tz = get_timezone("DE")
+    idx = make_year_index(year, "d", tz)
 
-    idx = pd.date_range(start=str(year), end=str(year + 1), freq="d")[:-1]
+    # idx = pd.date_range(start=str(year), end=str(year + 1), freq="d")[:-1]
     df = (
         pd.DataFrame(data={"Date": idx})
         .assign(Day=lambda x: pd.DatetimeIndex(x["Date"]).date)
@@ -1269,6 +1296,8 @@ def gas_slp_weekday_params(state: int, year: int):
         df["FW_" + str(slp)] = 0.0
         for wd in ["MO", "DI", "MI", "DO", "FR", "SA", "SO"]:
             df.loc[df[wd], ["FW_" + str(slp)]] = par.loc[slp, wd]
+
+    df = df.tz_convert('UTC')
 
     return_df = df.drop(columns=["DayOfYear"]).set_index("Day")
 
